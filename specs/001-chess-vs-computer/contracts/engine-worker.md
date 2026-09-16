@@ -101,7 +101,15 @@ export const TIER_DEPTH: Record<Difficulty, number> = {
 
 ## Error handling
 
-- If the worker fails to load or does not answer within a bounded timeout, the
-  computer turn ends without a move and the game reports a recoverable status.
-- An invalid or illegal `bestmove` is rejected by `chess.js`; the raw FEN is never
-  trusted as game state.
+- `findBestMove` resolves `null` (never rejects) when the worker fails to load,
+  does not answer within the bounded timeout, or has no move. The orchestrator
+  maps this to `engineError = true`.
+- Engine failure is browser-observable (FR-040, SC-014): the status region exposes
+  `data-engine-error="true"` and a visible, non-disruptive
+  `[data-testid="engine-error"]` message is shown. Normal thinking behavior
+  (`data-thinking`) is unchanged when the engine succeeds.
+- No automatic retries or recovery workflows are performed; the player may restart,
+  which clears `engineError`.
+- An invalid or illegal `bestmove` is rejected by `chess.js` and treated as engine
+  failure through the same `engineError` path; the raw FEN is never trusted as game
+  state.

@@ -67,7 +67,8 @@ Mitigation:
   `stockfish-19-lite-single.js` and `stockfish-19-lite-single.wasm` into
   `public/engine/`.
 - `public/engine/` is git-ignored; the copy runs from `predev`, `prebuild`, and
-  `pretest`.
+  `pretest:e2e` (npm runs the `pre`-prefixed script for the actual `test:e2e`
+  script, guaranteeing engine assets exist before E2E tests).
 - The deployed/static output only contains the ~1.8 MB engine pair.
 
 ---
@@ -155,9 +156,11 @@ the configuration, and each tier's move is asserted on a curated set of position
   positions tried), well within the "respond within a few seconds" assumption.
 
 - **The tiers are observably different on curated positions.** Recorded example
-  moves from the pinned engine (single-threaded lite, hash cleared):
+  moves from the pinned engine (single-threaded lite, hash cleared). These probes
+  were run with the position's recorded side to move (white in both rows); they are
+  evidence of tier divergence, **not** the test input list:
 
-  | Position | Depth 1 (Easy) | Depth 4 (Medium) | Depth 12 (Hard) |
+  | Position (probe side to move = white) | Depth 1 (Easy) | Depth 4 (Medium) | Depth 12 (Hard) |
   |---|---|---|---|
   | Kiwipete `r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1` | `e2a6` | `e2a6` | `d5e6` |
   | Rook endgame `8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1` | `a5a6` | `b4f4` | `b4f4` |
@@ -165,18 +168,38 @@ the configuration, and each tier's move is asserted on a curated set of position
   Together these show Easy diverging from Hard, and Medium matching a different
   tier on each position — i.e. three tiers with distinct, assertable behavior.
 
+- **Direction matters: the app's engine always plays black.** The application's
+  computer opponent is black (FR-001), so the engine is only ever asked to move for
+  the black side. Raw white-to-move probes above therefore cannot be used directly
+  as the value the app's computer will produce. Curated scenarios must define a
+  **black-to-move** position (a seed FEN plus a fixed scripted white move), and the
+  expected fixture is the engine's reply for black at that resulting FEN. The
+  generated `engine-moves.ts` is keyed by these black-to-move FENs per difficulty,
+  and the browser test seeds the same black-to-move FEN via `?fen=` (or plays the
+  scripted white move first) before asserting the computer reply.
+
 ### Curated-fixture policy
 
 Exact expected moves depend on the engine version and build. The planned approach:
 
 1. Pin `stockfish` exactly in `package.json` (no `^`).
 2. Generate the curated fixture table offline with the pinned engine and commit it
-   as test data (`tests/fixtures/engine-moves.ts`), each entry containing the FEN
-   plus the expected UCI move per difficulty.
-3. Playwright asserts the app's computer move matches the fixture for the active
-   tier.
+   as test data (`tests/fixtures/engine-moves.ts`), each entry containing a
+   **black-to-move** FEN (seed FEN + fixed scripted white move) plus the expected
+   UCI reply per difficulty.
+3. Playwright seeds the same black-to-move FEN (via `?fen=`, or by playing the
+   scripted white move) and asserts the app's black computer move matches the
+   fixture for the active tier.
 4. If the engine version is ever bumped, the fixture generator is re-run and the
    change is reviewed — this is documented and intentional, not silent.
+
+**Tooling-only boundary (C1).** Fixture generation (R3 and the scripts in
+`scripts/generate-engine-fixtures.mjs`) runs the pinned engine under Node at
+development/build time. It is test tooling only: it produces committed test data
+and **does not participate in browser gameplay**. At runtime the application is
+100% client-side (the engine runs as a Web Worker in the browser), so this
+tooling does not violate the browser-only runtime boundary of Constitution
+Principles II–III.
 
 FR-008 ("difficulty must not alter rules or legal moves") is satisfied because
 difficulty changes only the UCI `go depth` command; legal move generation is

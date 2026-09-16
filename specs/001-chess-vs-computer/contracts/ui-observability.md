@@ -36,7 +36,9 @@ A single element carries the whole observable game state.
   data-result="none"            <!-- none | checkmate | stalemate -->
   data-winner="none"            <!-- none | white | black -->
   data-difficulty="medium"      <!-- none | easy | medium | hard -->
-  data-engine-depth="4">        <!-- none | 1 | 4 | 12 -->
+  data-engine-depth="4"         <!-- none | 1 | 4 | 12 -->
+  data-engine-error="false"     <!-- true | false -->
+  data-legal-targets="e3,e4">   <!-- sorted, comma-separated legal destinations; empty when no piece selected -->
   <p data-testid="status-text">White to move</p>
 </section>
 ```
@@ -47,6 +49,13 @@ Required guarantees:
   `"false"` after the computer's move has been applied (FR-016).
 - `data-difficulty` and `data-engine-depth` expose the active, fixed tier
   (FR-007, SC-006).
+- `data-engine-error` is `"true"` only when the engine failed to load, timed out,
+  or could not provide a move, and `"false"` otherwise; it is cleared on restart
+  (FR-040, SC-014).
+- `data-legal-targets` is the sorted, comma-separated list of legal destination
+  squares for the currently selected white piece, or an empty string when no piece
+  is selected; it is derived from `chess.js` and does not depend on difficulty
+  (FR-008).
 - `data-result`/`data-winner` are authoritative for terminal conditions
   (FR-030, FR-031). `data-result` is one of `none`, `checkmate`, or `stalemate`
   only; it is never set for out-of-scope draws (threefold repetition, fifty-move
@@ -59,7 +68,9 @@ Required guarantees:
 - Stable identifier: `data-testid="thinking-indicator"`.
 - Contains visible text: `Computer is thinking…`.
 - Visible for at least 250 ms on every computer turn.
-- While thinking, the status region sets `aria-busy="true"`.
+- While thinking, the status region sets `aria-busy="true"`. The status region is
+  the **single authoritative location** for `aria-busy`; the thinking indicator
+  itself does not carry `aria-busy`.
 
 Test observation of duration: attach a `MutationObserver` to
 `[data-testid="game-status"]` on the `data-thinking` attribute and assert the
@@ -76,7 +87,8 @@ Test observation of duration: attach a `MutationObserver` to
 ```
 
 - Exactly three options with accessible names `Easy`, `Medium`, `Hard` (FR-004).
-- No option is selected on load (spec Assumptions).
+- No option is selected on load during normal startup (spec Assumptions); the
+  test-only `?difficulty=` parameter may preselect one.
 - Disabled or hidden while a game is active/ended; changing requires restart
   (FR-006).
 
@@ -136,11 +148,13 @@ Test observation of duration: attach a `MutationObserver` to
 ```html
 <ol role="list" aria-label="Move history" data-testid="move-history">
   <li role="listitem" data-side="white" data-ply="1" data-testid="move-1">e4</li>
-  <li role="listitem" data-side="black" data-ply="1" data-testid="move-2">e5</li>
+  <li role="listitem" data-side="black" data-ply="2" data-testid="move-2">e5</li>
 </ol>
 ```
 
 - Preserves order and distinguishes the side that made each move (FR-032).
+- `data-ply` is the 1-based half-move number (white=1, black=2, ...), matching
+  `MoveRecord.ply`.
 - Cleared on restart (FR-034). May be hidden or empty in `setup`.
 
 ## 8. Promotion dialog
@@ -166,6 +180,17 @@ Test observation of duration: attach a `MutationObserver` to
 
 - Non-disruptive; present for illegal moves and for start-without-difficulty.
 - Must not cover or disable the board.
+
+## 10. Engine error message
+
+```html
+<p role="status" data-testid="engine-error">The computer is unavailable right now.</p>
+```
+
+- Shown only while `data-engine-error="true"` on the status region (FR-040).
+- Visible and non-disruptive: it must not cover or disable the board, and the
+  player can still restart.
+- No automatic retry or recovery UI is shown.
 
 ---
 

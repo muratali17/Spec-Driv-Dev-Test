@@ -31,6 +31,12 @@ turn lifecycle. All types live in `src/game/types.ts`.
   insufficient material) are explicitly out of scope (spec Assumptions) and are
   **not** application terminal states.
 
+### `GameResult`
+- `{ kind: ResultKind; winner: Side | null }` — the terminal outcome returned by
+  `deriveResult()` and stored in `GameState.result` (or `null` while not terminal).
+- Defined once in `src/game/types.ts` (T009) and used by both the data model and
+  `contracts/game-orchestration.md`; no inline duplicate shape is allowed.
+
 ### Terminal-condition derivation (authoritative)
 
 Application terminal state is derived **only** from the two in-scope conditions,
@@ -88,17 +94,18 @@ rules; the surrounding fields describe session and orchestration.
 | `thinking` | `boolean` | Computer is calculating/applying. | True only during a computer turn; cleared after apply (FR-016). |
 | `statusText` | `string` | Human-readable status. | Derived from phase/turn/check/result. |
 | `check` | `boolean` | Side to move is in check. | `chess.isCheck()`. |
-| `result` | `{ kind: ResultKind; winner: Side \| null } \| null` | Terminal outcome. | Set only by `deriveResult()` (checkmate/stalemate); never from `isGameOver()` alone. |
+| `result` | `GameResult \| null` | Terminal outcome. | Set only by `deriveResult()` (checkmate/stalemate); never from `isGameOver()` alone. |
 | `moveHistory` | `MoveRecord[]` | Ordered move log. | Append on each applied move. |
 | `promotion` | `PromotionRequest \| null` | Pending promotion choice. | Blocks turn advance until resolved. |
 | `message` | `string \| null` | Non-disruptive feedback (e.g. illegal move). | Cleared on next valid action. |
+| `engineError` | `boolean` | Computer engine unavailable (worker load failure, bounded-timeout, or no move). | Set only on engine failure (FR-040); cleared on restart. |
 
 ### `MoveRecord`
 One applied half-move, attributed to the side that made it (FR-032).
 
 | Field | Type | Description |
 |---|---|---|
-| `index` | `number` | 1-based half-move number. |
+| `ply` | `number` | 1-based half-move number (white=1, black=2, ...); drives `data-ply`. |
 | `side` | `Side` | `"white"` (human) or `"black"` (computer). |
 | `san` | `string` | Standard algebraic notation from chess.js. |
 | `from` / `to` | `Square` | Origin/destination. |
@@ -138,7 +145,8 @@ FEN and a fixed depth, and receives a UCI move string.
 
 ```
 setup --select difficulty--> setup (difficulty set; still not started)
-setup --start (difficulty != null)--> playing
+setup --start (difficulty != null, no seed)--> playing (standard start position)
+setup --start (difficulty != null, ?fen= seed present)--> playing (seed loaded; test-only, not the standard position)
 setup --start (difficulty == null)--> setup  + message "select a difficulty"
 playing --deriveResult() reports checkmate or stalemate--> ended
 playing --restart--> setup (difficulty cleared, history/status cleared)
@@ -212,6 +220,7 @@ discarded and never applied.
 | Difficulty does not change rules | FR-008 | Difficulty only affects the UCI `go depth` value. |
 | Promotion must resolve before turn advance | FR-024, edge case | `promotion` pending blocks other actions. |
 | Restart abandons pending computer move | FR-035 | Generation token check on `bestmove`. |
+| Engine failure is observable | FR-040 | `engineError` set when the client resolves `null` (load failure/timeout/no move); projected to DOM; cleared on restart. |
 
 ---
 
@@ -230,4 +239,6 @@ The UI derives its `data-*` state directly from `GameState` (see
 | `data-winner` | `result?.winner ?? "none"` |
 | `data-difficulty` | `difficulty ?? "none"` |
 | `data-engine-depth` | `difficulty ? tierDepth[difficulty] : "none"` |
+| `data-engine-error` | `engineError ? "true" : "false"` |
+| `data-legal-targets` | `legalTargets` sorted, comma-separated (empty string when no selection) |
 | move list items | `moveHistory` |
