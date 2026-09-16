@@ -1,0 +1,39 @@
+{
+  "name": "browser-chess-vs-computer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "copy-engine": "node scripts/copy-engine.mjs",
+    "generate:engine-fixtures": "node scripts/generate-engine-fixtures.mjs",
+    "predev": "npm run copy-engine",
+    "dev": "vite",
+    "prebuild": "npm run copy-engine",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "pretest:e2e": "npm run copy-engine",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "chess.js": "1.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "prettier": "^3.9.6",
+    "stockfish": "19.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.3.0"
+  }
+}

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+public/engine/
+test-results/
+playwright-report/
+.playwright-mcp/
+coverage/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
