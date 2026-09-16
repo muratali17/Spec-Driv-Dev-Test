@@ -19,10 +19,12 @@ interface GameState {
   legalTargets: Square[];
   thinking: boolean;
   check: boolean;
-  result: { kind: "checkmate" | "stalemate"; winner: "white" | "black" | null } | null;
+  statusText: string;
+  result: GameResult | null;
   moveHistory: MoveRecord[];
   promotion: PromotionRequest | null;
   message: string | null;
+  engineError: boolean;
 }
 ```
 
@@ -33,10 +35,10 @@ Full field definitions: [data-model.md](../data-model.md).
 | Action | Behavior |
 |---|---|
 | `selectDifficulty(difficulty)` | Allowed only in `setup`; sets or clears the choice. |
-| `startGame()` | Requires a difficulty; resets the `Chess` instance to the standard start position; sets `phase = "playing"`. If the seeded position is black to move, immediately begins a computer turn. |
+| `startGame()` | Requires a difficulty. If a `?fen=` seed is present, loads that FEN; otherwise resets the `Chess` instance to the standard start position. Sets `phase = "playing"`. If the resulting position is black to move, immediately begins a computer turn. |
 | `handleSquareClick(square)` | Implements select-then-destination; no-op when blocked. |
 | `choosePromotion(piece)` | Completes a pending promotion through `chess.js`. |
-| `restartGame()` | Full reset to `setup`; increments the generation token; abandons any in-flight computer move. |
+| `restartGame()` | Full reset to `setup`; increments the generation token; abandons any in-flight computer move; clears `engineError`. |
 
 ## Human interaction rules (`handleSquareClick`)
 
@@ -82,12 +84,18 @@ const generation = currentGeneration
 const best = await engine.findBestMove(chess.fen(), TIER_DEPTH[difficulty])
 await delay(max(0, 250 - (performance.now() - startedAt)))
 if generation !== currentGeneration: return            // restart happened
-if best == null: thinking = false; result = deriveResult(chess); return
-try { apply chess.move(parseUci(best)) } catch { thinking = false; return }
+if best == null: engineError = true; thinking = false; return   // DOM: data-engine-error="true"
+try { apply chess.move(parseUci(best)) } catch { engineError = true; thinking = false; return }
 thinking = false                     // DOM: data-thinking="false"
 append MoveRecord; result = deriveResult(chess)
 if result == null: return control to human (turn is now white)
 ```
+
+`engine.findBestMove` resolves `null` when the worker fails to load, the bounded
+timeout elapses, or no move is available; the orchestrator maps that to
+`engineError = true` (FR-040). This is a terminal-for-the-turn error state: the
+turn does not advance to the human and no further moves are forced. `engineError`
+is cleared by `restartGame()`.
 
 Guarantees:
 
@@ -97,6 +105,8 @@ Guarantees:
 - Exactly one computer move per completed human turn (FR-014).
 - The computer move is validated through `chess.js` (FR-015).
 - Abandoned turns are dropped via the generation token (FR-035).
+- Engine failure is deterministic and browser-observable; the normal thinking
+  contract is unchanged when the engine succeeds (FR-040, SC-014).
 
 ## Terminal-state evaluation
 

@@ -148,7 +148,7 @@ The player can use the full application on a phone-sized browser viewport, inclu
 **Players and Setup**
 
 - **FR-001**: The application MUST be a single-player chess game in which the human player always controls the white pieces and the computer opponent always controls the black pieces.
-- **FR-002**: A new game MUST begin from the standard chess starting position with the human to move.
+- **FR-002**: A new game MUST begin from the standard chess starting position with the human to move, except when an explicit test-only position seed is supplied (see Assumptions); the user-facing start path always uses the standard starting position.
 - **FR-003**: The board MUST be presented so that the human's white pieces are oriented toward the player.
 
 **Difficulty**
@@ -156,7 +156,7 @@ The player can use the full application on a phone-sized browser viewport, inclu
 - **FR-004**: The application MUST offer exactly three difficulty levels labeled Easy, Medium, and Hard.
 - **FR-005**: A difficulty level MUST be selected before a game can start; the application MUST NOT start a game without a selected difficulty.
 - **FR-006**: Once a game has started, the selected difficulty MUST NOT be changeable unless the player restarts and starts a new game.
-- **FR-007**: The three difficulty levels MUST produce meaningfully different opponent strength that is observable by the player. Each difficulty MUST have a fixed, documented behavior tier (for example, a defined search depth or randomness level) that is exposed as a browser-observable value and verified against expected moves on a curated set of positions.
+- **FR-007**: The three difficulty levels MUST map to fixed, documented Stockfish search depths of 1 (Easy), 4 (Medium), and 12 (Hard). The active tier and its search depth MUST be exposed as browser-observable values, and each tier's expected move MUST be verified against expected moves on a curated set of positions. The determination of strength is deterministic and non-statistical.
 - **FR-008**: Changing difficulty MUST NOT alter the rules or the set of legal moves available in a position.
 
 **Turns and Move Interaction**
@@ -205,6 +205,10 @@ The player can use the full application on a phone-sized browser viewport, inclu
 - **FR-038**: Interactive elements and the state that tests depend on (such as turn, status condition, thinking indicator, and move history) MUST be observable through the browser so that behavior can be driven and verified by browser automation.
 - **FR-039**: Interactive elements and observable game state MUST expose stable, accessible roles and labels. Pointer/click MUST be a sufficient input method for all core interactions; full keyboard operability of the board is NOT required for this prototype.
 
+**Engine Reliability**
+
+- **FR-040**: If the computer engine fails to load, does not respond within a bounded time, or cannot provide a move, the application MUST expose a deterministic browser-observable engine-error state and display a visible, non-disruptive error message. The normal computer-thinking state contract (FR-016) MUST remain unchanged. No automatic retries or recovery workflows are required.
+
 ### Key Entities *(include if data involved)*
 
 - **Game**: The overall session. Attributes include whether it has started, whether it is active or ended, whose turn it is, the selected difficulty, and the result when ended.
@@ -214,7 +218,7 @@ The player can use the full application on a phone-sized browser viewport, inclu
 - **Piece**: A chess piece with a color (white or black), a type (king, queen, rook, bishop, knight, pawn), and a current square.
 - **Move**: A single turn action, including the moving side, the origin and destination squares, and whether it is a special move (capture, castling, en passant, or promotion).
 - **Move History**: The ordered record of moves made by the human and the computer, attributed to the side that made each move.
-- **Game Status**: The currently displayed condition, including turn ownership, the computer-thinking indicator, check, checkmate, stalemate, and the final result.
+- **Game Status**: The currently displayed condition, including turn ownership, the computer-thinking indicator, engine-error state, check, checkmate, stalemate, and the final result.
 - **Board**: The collection of squares and the pieces occupying them at the current moment.
 
 ## Success Criteria *(mandatory)*
@@ -226,7 +230,7 @@ The player can use the full application on a phone-sized browser viewport, inclu
 - **SC-003**: 100% of new games begin from the standard chess starting position with the human to move.
 - **SC-004**: After every legal human move, the computer produces a legal reply automatically, and the browser-observable thinking state flag is set (with the visible indicator shown for at least 250 ms) before the reply is applied, in 100% of tested moves.
 - **SC-005**: The player is unable to make a move while the computer is thinking in 100% of tested attempts, with the board unchanged.
-- **SC-006**: Each difficulty level's documented behavior tier is exposed as a browser-observable value, and on a curated set of positions each difficulty produces its expected tier-appropriate move in 100% of tested positions.
+- **SC-006**: Each difficulty level's fixed search depth (1, 4, or 12) is exposed as a browser-observable value, and on a curated set of positions each difficulty produces its expected tier-appropriate move in 100% of tested positions.
 - **SC-007**: Check, checkmate, and stalemate are correctly detected and displayed in 100% of the positions tested for those conditions.
 - **SC-008**: No move is accepted after the game has ended in 100% of tested attempts.
 - **SC-009**: Promotion, castling, and en passant each succeed in 100% of the legal positions tested and are correctly rejected when illegal.
@@ -234,14 +238,15 @@ The player can use the full application on a phone-sized browser viewport, inclu
 - **SC-011**: At mobile viewport widths from 480 px down to 320 px, all acceptance scenarios that are tested on desktop remain executable and observable without horizontal scrolling.
 - **SC-012**: All acceptance scenarios in this specification can be exercised and verified through browser interactions alone, without manual inspection of internals.
 - **SC-013**: Interactive controls and observable state expose accessible roles and labels, and every core interaction is completable using pointer/click input alone, in 100% of tested scenarios.
+- **SC-014**: In 100% of tested engine-failure cases (engine asset blocked or engine timeout), the browser-observable engine-error state is set, a visible non-disruptive error message is shown, and the thinking state is cleared; the normal thinking-state behavior is unchanged when the engine succeeds.
 
 ## Assumptions
 
 - The target user is a single person playing on one device in a modern graphical browser; no account, sign-in, or network connection is required.
 - Game state exists only for the current session; refreshing or closing the page discards the game and starts over. No game history is persisted.
 - The human always plays white and the computer always plays black; there is no option to choose sides.
-- Difficulty must be chosen explicitly; no difficulty is preselected when the application loads.
-- The three difficulty levels map to increasing opponent strength (Easy weakest, Hard strongest). The exact mechanism is a planning decision, but each level MUST have a fixed, documented behavior tier that is exposed as a browser-observable value and verifiable against expected moves on curated positions (see FR-007, SC-006).
+- Difficulty must be chosen explicitly; no difficulty is preselected during normal application startup, except when the test-only `?difficulty=` parameter is supplied (see the test-affordance assumption below).
+- The three difficulty levels map to increasing opponent strength (Easy weakest, Hard strongest) via fixed, documented Stockfish search depths of 1, 4, and 12 respectively; the active depth is exposed as a browser-observable value and verifiable against expected moves on curated positions (see FR-007, SC-006).
 - Only stalemate is treated as a draw for this prototype. Other draw conditions from tournament chess (threefold repetition, the fifty-move rule, and insufficient material) are out of scope.
 - Promotion offers queen, rook, bishop, or knight; choosing a piece other than a queen is supported.
 - The exact naming/notation used in the move history and the exact visual styling of the board, selection, status, and thinking indicator are not prescribed; only their observable presence and correctness is required.
@@ -251,3 +256,4 @@ The player can use the full application on a phone-sized browser viewport, inclu
 - Pointer/click is the only required input method for core interactions. Full keyboard operability of the board (navigation, selection, and move confirmation) is out of scope, but interactive elements and observable state must expose accessible roles and labels for automation and basic assistive technology.
 - Mobile-sized viewport testing covers widths from 480 px down to a guaranteed minimum of 320 px; desktop testing uses a standard desktop-width viewport.
 - Piece movement uses click/tap-to-select followed by click/tap-destination; drag-and-drop is not required.
+- The application accepts a test-only startup URL parameter (`?fen=<FEN>` and `?difficulty=easy|medium|hard`) so automated tests can seed positions and preselect a difficulty. It does not change player-facing behavior: an unseeded "start game" still begins from the standard chess starting position (FR-002). Seeding is exercised only by tests and exposes no additional UI.

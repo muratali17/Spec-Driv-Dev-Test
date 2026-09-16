@@ -66,7 +66,7 @@ human and one computer side. No accounts, matchmaking, persistence, or analysis.
 | Principle | Gate | Status |
 |---|---|---|
 | I. Prototype-Scale Scope | No production infrastructure; only what the spec requires. | PASS — single Vite app, no backend/CI beyond local tests. |
-| II. Browser-Only Execution | All gameplay runs client-side; static artifacts. | PASS — engine and rules both run in the browser; `dist/` is static. |
+| II. Browser-Only Execution | All gameplay runs client-side; static artifacts. | PASS — engine and rules both run in the browser; `dist/` is static. Engine fixture generation runs under Node at build time as offline test tooling only and does not participate in gameplay (research R3/C1). |
 | III. No Backend by Default | No backend introduced. | PASS — none. |
 | IV. Excluded Product Features | No auth, accounts, DB, multiplayer, ratings, social. | PASS — none. |
 | V. Leverage Mature Libraries | Delegate chess rules to a mature library. | PASS — chess.js 1.4.0 owns all rules. |
